@@ -455,10 +455,21 @@ const sendChatMessage = async (payload: any) => {
         
         const { model: modelName, messages, temperature, max_tokens, top_p, tools, toolResponses, documents, apiKey: providedApiKey } = payload
         
-        // Get API key from header (providedApiKey) or environment variable
-        let apiKey = providedApiKey || process.env.OPENAI_API_KEY || process.env.AGENTIC_AI_API_KEY
+        logger.info('🔍 API Key Extraction Debug:')
+        logger.info('  - providedApiKey exists:', !!providedApiKey)
+        logger.info('  - providedApiKey type:', typeof providedApiKey)
+        logger.info('  - providedApiKey length:', providedApiKey ? providedApiKey.length : 0)
+        logger.info('  - providedApiKey preview:', providedApiKey ? providedApiKey.substring(0, 20) + '...' : 'N/A')
+        logger.info('  - env OPENAI_API_KEY exists:', !!process.env.OPENAI_API_KEY)
+        logger.info('  - env AGENTIC_AI_API_KEY exists:', !!process.env.AGENTIC_AI_API_KEY)
         
-        if (!apiKey) {
+        // Get API key from header (providedApiKey) or environment variable
+        // Trim the API key to remove any whitespace
+        let apiKey = (providedApiKey && providedApiKey.trim()) || process.env.OPENAI_API_KEY || process.env.AGENTIC_AI_API_KEY
+        
+        logger.info('  - Final apiKey selected:', apiKey ? apiKey.substring(0, 20) + '...' : 'NONE')
+        
+        if (!apiKey || apiKey.trim() === '') {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
                 'OpenAI API key is required. Please select a credential or set OPENAI_API_KEY environment variable.'

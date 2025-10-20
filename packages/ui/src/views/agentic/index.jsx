@@ -86,6 +86,7 @@ const Agentic = () => {
     
     // Credentials state
     const [credentials, setCredentials] = useState([])
+    const [credentialsFetched, setCredentialsFetched] = useState(false)
     const [selectedCredential, setSelectedCredential] = useState('')
     const [bearerToken, setBearerToken] = useState('')
     const [fullApiKey, setFullApiKey] = useState('')
@@ -498,6 +499,9 @@ const Agentic = () => {
             console.log('  ℹ️  API Key Source:', fullApiKey ? 'Manual Entry / Selected Credential' : 'Will use backend env variable')
             console.log('  ℹ️  Full Bearer Token Field:', bearerToken || 'Not set')
             console.log('  ℹ️  API Key (extracted):', fullApiKey ? `${fullApiKey.substring(0, 20)}...${fullApiKey.substring(fullApiKey.length - 4)}` : 'Not set (using backend default)')
+            console.log('  ℹ️  API Key Length:', fullApiKey ? fullApiKey.length : 0)
+            console.log('  ℹ️  API Key is valid format:', fullApiKey ? (fullApiKey.startsWith('sk-') || fullApiKey.startsWith('sk_')) : false)
+            console.log('  ℹ️  API Key trimmed:', fullApiKey ? fullApiKey.trim() : '')
             console.log('=' .repeat(80))
             console.log('📋 FULL REQUEST PAYLOAD (STRINGIFIED):')
             console.log(JSON.stringify(finalPayload, null, 2))
@@ -558,7 +562,10 @@ const Agentic = () => {
                 console.log('=' .repeat(80))
                 
                 // Call backend API with Authorization header (standard mode)
-                response = await agenticApi.sendChatMessage(finalPayload, fullApiKey)
+                // Ensure API key is trimmed and valid
+                const apiKeyToSend = fullApiKey ? fullApiKey.trim() : undefined
+                console.log('📤 Final API Key to send:', apiKeyToSend ? `${apiKeyToSend.substring(0, 20)}...` : 'undefined (will use backend env)')
+                response = await agenticApi.sendChatMessage(finalPayload, apiKeyToSend)
             }
             
             console.log('✅ RECEIVED RESPONSE FROM BACKEND')
@@ -670,12 +677,13 @@ const Agentic = () => {
         fetchCredentials()
     }, [])
     
-    // Load solution data if solutionId is provided
+    // Load solution data if solutionId is provided (and credentials are loaded)
     useEffect(() => {
-        if (solutionId) {
+        if (solutionId && credentialsFetched) {
+            // Only load solution after credentials have been fetched
             loadSolution()
         }
-    }, [solutionId])
+    }, [solutionId, credentialsFetched])
     
     const loadSolution = async () => {
         try {
@@ -711,7 +719,28 @@ const Agentic = () => {
                     if (config.topP !== undefined) setTopP(config.topP)
                     if (config.tools) setTools(config.tools)
                     if (config.documents) setDocuments(config.documents)
-                    if (config.selectedCredential) setSelectedCredential(config.selectedCredential)
+                    
+                    // Handle credential loading with validation
+                    if (config.selectedCredential) {
+                        // First check if the credential exists before setting it
+                        const credentialExists = credentials.find(c => c.id === config.selectedCredential)
+                        if (credentialExists) {
+                            setSelectedCredential(config.selectedCredential)
+                            // Fetch the credential details
+                            handleCredentialChange(config.selectedCredential)
+                        } else {
+                            console.warn('Saved credential not found:', config.selectedCredential)
+                            // Clear the credential selection if it doesn't exist
+                            setSelectedCredential('')
+                            setFullApiKey('')
+                            setBearerToken('')
+                        }
+                    } else if (config.manualApiKey) {
+                        // Restore manually entered API key
+                        console.log('Restoring manually entered API key')
+                        setFullApiKey(config.manualApiKey)
+                        setBearerToken(`Bearer ${config.manualApiKey.substring(0, 10)}...${config.manualApiKey.substring(config.manualApiKey.length - 4)}`)
+                    }
                 } catch (error) {
                     console.error('Error parsing solution configuration:', error)
                 }
@@ -752,7 +781,10 @@ const Agentic = () => {
                 topP,
                 tools,
                 documents,
-                selectedCredential
+                // Only save selectedCredential if it's a valid non-empty string
+                ...(selectedCredential && selectedCredential.trim() !== '' && { selectedCredential }),
+                // Save manually entered API key (if any) - note: this will be encrypted by backend
+                ...(fullApiKey && fullApiKey.trim() !== '' && !selectedCredential && { manualApiKey: fullApiKey })
             }
             
             await solutionsApi.updateSolution(solutionId, {
@@ -795,6 +827,8 @@ const Agentic = () => {
         } catch (error) {
             console.error('❌ Error fetching credentials:', error)
             setCredentials([])
+        } finally {
+            setCredentialsFetched(true)
         }
     }
     
@@ -805,6 +839,14 @@ const Agentic = () => {
             try {
                 // Find the selected credential name for display
                 const selectedCred = credentials.find(c => c.id === credentialId)
+                
+                if (!selectedCred) {
+                    console.warn('⚠️  Credential ID not found in credentials list:', credentialId)
+                    setFullApiKey('')
+                    setBearerToken('')
+                    return
+                }
+                
                 console.log('=' .repeat(80))
                 console.log('🔐 USER SELECTED CREDENTIAL FROM CREDENTIALS SECTION')
                 console.log('=' .repeat(80))
@@ -1069,6 +1111,10 @@ const Agentic = () => {
                                                 setFullApiKey(value.substring(7).trim())
                                             } else {
                                                 setFullApiKey(value.trim())
+                                            }
+                                            // Clear the selected credential when manually entering an API key
+                                            if (value.trim()) {
+                                                setSelectedCredential('')
                                             }
                                         }}
                                         variant='outlined'
