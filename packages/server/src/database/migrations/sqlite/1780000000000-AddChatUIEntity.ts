@@ -1,0 +1,47 @@
+import { MigrationInterface, QueryRunner } from 'typeorm'
+
+export class AddChatUIEntity1780000000000 implements MigrationInterface {
+    name = 'AddChatUIEntity1780000000000'
+
+    public async up(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query(
+            `CREATE TABLE "chat_ui" (
+                "id" varchar PRIMARY KEY NOT NULL, 
+                "botId" varchar NOT NULL, 
+                "theme" varchar(20) NOT NULL DEFAULT ('LIGHT'), 
+                "primaryColor" text, 
+                "secondaryColor" text, 
+                "backgroundColor" text, 
+                "textColor" text, 
+                "fontFamily" text, 
+                "borderRadius" text, 
+                "boxShadow" text, 
+                "position" varchar(20) NOT NULL DEFAULT ('BOTTOM_RIGHT'), 
+                "iconUrl" text, 
+                "greeting" text, 
+                "quickReplies" text, 
+                "bubbleStyle" text, 
+                "avatarUrl" text, 
+                "showTypingIndicator" boolean NOT NULL DEFAULT (1), 
+                "showTimestamp" boolean NOT NULL DEFAULT (1), 
+                "enableFileUpload" boolean NOT NULL DEFAULT (1), 
+                "enableMarkdown" boolean NOT NULL DEFAULT (1), 
+                "highContrast" boolean NOT NULL DEFAULT (0), 
+                "screenReaderSupport" boolean NOT NULL DEFAULT (1), 
+                "ariaLabel" text, 
+                "embedCode" text, 
+                "version" text, 
+                "isProduction" boolean NOT NULL DEFAULT (0), 
+                "workspaceId" varchar, 
+                "createdDate" datetime NOT NULL DEFAULT (datetime('now')), 
+                "updatedDate" datetime NOT NULL DEFAULT (datetime('now')), 
+                CONSTRAINT "FK_chat_ui_bot" FOREIGN KEY ("botId") REFERENCES "bot" ("id") ON DELETE CASCADE ON UPDATE NO ACTION
+            )`
+        )
+    }
+
+    public async down(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query(`DROP TABLE "chat_ui"`)
+    }
+}
+
